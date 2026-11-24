@@ -1,0 +1,400 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdminToken() {
+      return isSignedIn() &&
+             request.auth.token.email == 'destinyline0000@gmail.com' &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isAdminToken() ||
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isValidDriveSlotId(id) {
+      return id in ['slot_1', 'slot_2', 'slot_3', 'slot_4', 'slot_5'];
+    }
+
+    // 3. Entity Validators
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.role in ['FREE', 'VIP', 'PREMIUM', 'ADMIN'] &&
+             data.subscriptionTier in ['FREE', 'VIP', 'PREMIUM'] &&
+             data.preferredLanguage in ['EN', 'SW'] &&
+             data.banned is bool &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             (!('phoneNumber' in data) || (data.phoneNumber is string && data.phoneNumber.size() <= 30)) &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 1000));
+    }
+
+    function isValidDirectoryEntry(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+             data.role in ['FREE', 'VIP', 'PREMIUM', 'ADMIN'] &&
+             data.subscriptionTier in ['FREE', 'VIP', 'PREMIUM'] &&
+             data.discoverable is bool &&
+             (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 1000));
+    }
+
+    function isValidMovie(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+             data.tier in ['FREE', 'VIP', 'PREMIUM'] &&
+             data.videoUrl is string && data.videoUrl.size() >= 1 && data.videoUrl.size() <= 2000 &&
+             data.linkType in ['DIRECT_MP4', 'YOUTUBE', 'VIMEO', 'GOOGLE_DRIVE', 'HOSTED_WEB', 'BUNDLED_CLIP'] &&
+             data.genre is string && data.genre.size() >= 1 && data.genre.size() <= 60 &&
+             data.durationMinutes is int && data.durationMinutes >= 0 && data.durationMinutes <= 1000 &&
+             data.driveAccountSlot is int && data.driveAccountSlot >= 0 && data.driveAccountSlot <= 5 &&
+             data.published is bool &&
+             data.addedByUid is string && data.addedByUid.size() >= 1 && data.addedByUid.size() <= 128 &&
+             (!('posterUrl' in data) || (data.posterUrl is string && data.posterUrl.size() <= 2000)) &&
+             (!('resolvedStreamUrl' in data) || (data.resolvedStreamUrl is string && data.resolvedStreamUrl.size() <= 2000)) &&
+             (!('driveFileId' in data) || (data.driveFileId is string && data.driveFileId.size() <= 256));
+    }
+
+    function isValidChatGroup(data) {
+      return data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 300 &&
+             data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+             data.active is bool &&
+             data.memberCount is int && data.memberCount >= 1 && data.memberCount <= 100000 &&
+             (!('topicTag' in data) || (data.topicTag is string && data.topicTag.size() <= 40));
+    }
+
+    function isValidGroupMessage(data) {
+      return data.groupId is string && data.groupId.size() >= 1 && data.groupId.size() <= 128 &&
+             data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.senderTier in ['FREE', 'VIP', 'PREMIUM', 'ADMIN'] &&
+             data.text is string && data.text.size() <= 2000 &&
+             data.mediaType in ['NONE', 'IMAGE', 'VIDEO'] &&
+             data.groupActive is bool &&
+             (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 2000)) &&
+             (!('thumbnailData' in data) || (data.thumbnailData is string && data.thumbnailData.size() <= 350000));
+    }
+
+    function isValidPrivateChat(data) {
+      return data.participantIds is list && data.participantIds.size() == 2 &&
+             data.participantIds[0] is string && data.participantIds[1] is string &&
+             data.participantIds[0] != data.participantIds[1] &&
+             data.participantNames is map &&
+             data.lastMessage is string && data.lastMessage.size() <= 500;
+    }
+
+    function isValidPrivateMessage(data) {
+      return data.chatId is string && data.chatId.size() >= 1 && data.chatId.size() <= 260 &&
+             data.participantIds is list && data.participantIds.size() == 2 &&
+             data.participantIds[0] is string && data.participantIds[1] is string &&
+             data.senderId is string && data.senderId.size() >= 1 && data.senderId.size() <= 128 &&
+             data.senderName is string && data.senderName.size() >= 1 && data.senderName.size() <= 80 &&
+             data.text is string && data.text.size() <= 2000 &&
+             data.mediaType in ['NONE', 'IMAGE', 'VIDEO'] &&
+             (!('mediaUrl' in data) || (data.mediaUrl is string && data.mediaUrl.size() <= 2000));
+    }
+
+    function isValidPaymentRequest(data) {
+      return data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80 &&
+             data.provider in ['MPESA', 'TIGO_PESA', 'AIRTEL_MONEY'] &&
+             data.phoneNumber is string && data.phoneNumber.size() >= 9 && data.phoneNumber.size() <= 20 &&
+             data.targetTier in ['VIP', 'PREMIUM'] &&
+             data.amountTzs is int && data.amountTzs >= 1000 && data.amountTzs <= 5000000 &&
+             data.referenceCode is string && data.referenceCode.size() >= 4 && data.referenceCode.size() <= 60 &&
+             data.status in ['PENDING', 'APPROVED', 'REJECTED'];
+    }
+
+    function isValidDriveAccountSlot(data) {
+      return data.slotNumber is int && data.slotNumber >= 1 && data.slotNumber <= 5 &&
+             data.accountLabel is string && data.accountLabel.size() >= 1 && data.accountLabel.size() <= 80 &&
+             data.accountEmail is string && data.accountEmail.size() >= 1 && data.accountEmail.size() <= 120 &&
+             data.status in ['CONNECTED', 'ACTIVE', 'DISCONNECTED', 'ERROR'] &&
+             data.usedBytes is int && data.usedBytes >= 0 &&
+             data.totalBytes is int && data.totalBytes >= 0 &&
+             (!('folderId' in data) || (data.folderId is string && data.folderId.size() <= 256));
+    }
+
+    function isValidGitHubConfig(data) {
+      return data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 100 &&
+             data.repo is string && data.repo.size() >= 1 && data.repo.size() <= 120 &&
+             data.branch is string && data.branch.size() >= 1 && data.branch.size() <= 80 &&
+             data.latestCommitSha is string && data.latestCommitSha.size() <= 64 &&
+             data.latestCommitMessage is string && data.latestCommitMessage.size() <= 300 &&
+             data.remoteVersion is string && data.remoteVersion.size() >= 1 && data.remoteVersion.size() <= 40 &&
+             data.status in ['CONNECTED', 'SYNCED', 'DISCONNECTED'] &&
+             (!('updateNotes' in data) || (data.updateNotes is string && data.updateNotes.size() <= 1000));
+    }
+
+    // 4. Collection Rules
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list: if isAdminToken();
+      allow create: if isAdmin() &&
+                       isValidId(adminUid) &&
+                       incoming().keys().hasAll(['userId', 'email', 'grantedBy', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'email', 'grantedBy', 'createdAt']) &&
+                       incoming().userId == adminUid &&
+                       incoming().email is string && incoming().email.size() <= 120 &&
+                       incoming().grantedBy is string && incoming().grantedBy.size() <= 128 &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+      allow update: if false;
+      allow delete: if isAdmin() && isValidId(adminUid);
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdminToken();
+      allow create: if isValidId(userId) &&
+                       isSignedIn() &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'role', 'subscriptionTier', 'preferredLanguage', 'banned', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'email', 'phoneNumber', 'photoUrl', 'role', 'subscriptionTier', 'preferredLanguage', 'banned', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (isOwner(userId) && incoming().role == 'FREE' && incoming().subscriptionTier == 'FREE' && incoming().banned == false)
+                       );
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           isOwner(userId) &&
+                           incoming().role == existing().role &&
+                           incoming().subscriptionTier == existing().subscriptionTier &&
+                           incoming().banned == existing().banned &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'phoneNumber', 'photoUrl', 'preferredLanguage', 'updatedAt'])
+                         )
+                       );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    match /user_directory/{userId} {
+      allow get, list: if isSignedIn() && (resource.data.discoverable == true || isAdminToken());
+      allow create: if isValidId(userId) &&
+                       isSignedIn() &&
+                       isValidDirectoryEntry(incoming()) &&
+                       incoming().userId == userId &&
+                       incoming().keys().hasAll(['userId', 'displayName', 'role', 'subscriptionTier', 'discoverable', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'displayName', 'photoUrl', 'role', 'subscriptionTier', 'discoverable', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (isOwner(userId) && incoming().role == 'FREE' && incoming().subscriptionTier == 'FREE')
+                       );
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidDirectoryEntry(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (
+                           isOwner(userId) &&
+                           incoming().role == existing().role &&
+                           incoming().subscriptionTier == existing().subscriptionTier &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoUrl', 'discoverable', 'updatedAt'])
+                         )
+                       );
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    match /movies/{movieId} {
+      allow get, list: if isSignedIn() && (resource.data.published == true || isAdminToken());
+      allow create: if isAdmin() &&
+                       isValidId(movieId) &&
+                       isValidMovie(incoming()) &&
+                       incoming().addedByUid == request.auth.uid &&
+                       incoming().keys().hasAll(['title', 'description', 'tier', 'videoUrl', 'linkType', 'genre', 'durationMinutes', 'driveAccountSlot', 'published', 'addedByUid', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['title', 'description', 'tier', 'videoUrl', 'linkType', 'genre', 'durationMinutes', 'driveAccountSlot', 'published', 'addedByUid', 'posterUrl', 'resolvedStreamUrl', 'driveFileId', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidMovie(incoming()) &&
+                       isAdmin() &&
+                       isValidId(movieId) &&
+                       incoming().addedByUid == existing().addedByUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'tier', 'videoUrl', 'linkType', 'genre', 'durationMinutes', 'driveAccountSlot', 'published', 'posterUrl', 'resolvedStreamUrl', 'driveFileId', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(movieId);
+    }
+
+    match /chat_groups/{groupId} {
+      allow get, list: if isSignedIn() && (resource.data.active == true || isAdminToken());
+      allow create: if isSignedIn() &&
+                       isValidId(groupId) &&
+                       isValidChatGroup(incoming()) &&
+                       incoming().createdByUid == request.auth.uid &&
+                       incoming().active == true &&
+                       incoming().memberCount == 1 &&
+                       incoming().keys().hasAll(['name', 'description', 'createdByUid', 'active', 'memberCount', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'description', 'topicTag', 'createdByUid', 'active', 'memberCount', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidId(groupId) &&
+                       isValidChatGroup(incoming()) &&
+                       incoming().createdByUid == existing().createdByUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         isAdmin() ||
+                         (incoming().diff(existing()).affectedKeys().hasOnly(['memberCount', 'updatedAt']) && incoming().memberCount >= 1)
+                       );
+      allow delete: if isAdmin() && isValidId(groupId);
+
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (resource.data.groupActive == true || isAdminToken());
+        allow create: if isSignedIn() &&
+                         isValidId(groupId) &&
+                         isValidId(messageId) &&
+                         isValidGroupMessage(incoming()) &&
+                         incoming().groupId == groupId &&
+                         incoming().senderId == request.auth.uid &&
+                         incoming().groupActive == true &&
+                         exists(/databases/$(database)/documents/chat_groups/$(groupId)) &&
+                         incoming().keys().hasAll(['groupId', 'senderId', 'senderName', 'senderTier', 'text', 'mediaType', 'groupActive', 'createdAt']) &&
+                         incoming().keys().hasOnly(['groupId', 'senderId', 'senderName', 'senderTier', 'text', 'mediaType', 'mediaUrl', 'thumbnailData', 'groupActive', 'createdAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(groupId) && isValidId(messageId) && (existing().senderId == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /private_chats/{chatId} {
+      allow get, list: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAdminToken());
+      allow create: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       isValidPrivateChat(incoming()) &&
+                       request.auth.uid in incoming().participantIds &&
+                       incoming().keys().hasAll(['participantIds', 'participantNames', 'lastMessage', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['participantIds', 'participantNames', 'lastMessage', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidId(chatId) &&
+                       isValidPrivateChat(incoming()) &&
+                       incoming().participantIds == existing().participantIds &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (request.auth.uid in existing().participantIds || isAdmin()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'participantNames', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(chatId);
+
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (request.auth.uid in resource.data.participantIds || isAdminToken());
+        allow create: if isSignedIn() &&
+                         isValidId(chatId) &&
+                         isValidId(messageId) &&
+                         isValidPrivateMessage(incoming()) &&
+                         incoming().chatId == chatId &&
+                         incoming().senderId == request.auth.uid &&
+                         request.auth.uid in incoming().participantIds &&
+                         exists(/databases/$(database)/documents/private_chats/$(chatId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/private_chats/$(chatId)).data.participantIds &&
+                         incoming().participantIds == get(/databases/$(database)/documents/private_chats/$(chatId)).data.participantIds &&
+                         incoming().keys().hasAll(['chatId', 'participantIds', 'senderId', 'senderName', 'text', 'mediaType', 'createdAt']) &&
+                         incoming().keys().hasOnly(['chatId', 'participantIds', 'senderId', 'senderName', 'text', 'mediaType', 'mediaUrl', 'createdAt']) &&
+                         incoming().createdAt is timestamp && incoming().createdAt <= request.time;
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && (existing().senderId == request.auth.uid || isAdmin());
+      }
+    }
+
+    match /payment_requests/{requestId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdminToken());
+      allow create: if isSignedIn() &&
+                       isValidId(requestId) &&
+                       isValidPaymentRequest(incoming()) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().status == 'PENDING' &&
+                       incoming().keys().hasAll(['userId', 'userName', 'provider', 'phoneNumber', 'targetTier', 'amountTzs', 'referenceCode', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['userId', 'userName', 'provider', 'phoneNumber', 'targetTier', 'amountTzs', 'referenceCode', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidPaymentRequest(incoming()) &&
+                       isAdmin() &&
+                       isValidId(requestId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       existing().status == 'PENDING' &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(requestId);
+    }
+
+    match /drive_accounts/{slotId} {
+      allow list: if isAdminToken();
+      allow get: if isAdmin() && isValidDriveSlotId(slotId);
+      allow create: if isAdmin() &&
+                       isValidDriveSlotId(slotId) &&
+                       isValidDriveAccountSlot(incoming()) &&
+                       incoming().keys().hasAll(['slotNumber', 'accountLabel', 'accountEmail', 'status', 'usedBytes', 'totalBytes', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['slotNumber', 'accountLabel', 'accountEmail', 'folderId', 'status', 'usedBytes', 'totalBytes', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidDriveAccountSlot(incoming()) &&
+                       isAdmin() &&
+                       isValidDriveSlotId(slotId) &&
+                       incoming().slotNumber == existing().slotNumber &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['accountLabel', 'accountEmail', 'folderId', 'status', 'usedBytes', 'totalBytes', 'updatedAt']);
+      allow delete: if isAdmin() && isValidDriveSlotId(slotId);
+    }
+
+    match /github_config/{configId} {
+      allow list: if isAdminToken();
+      allow get: if isAdmin() && isValidId(configId);
+      allow create: if isAdmin() &&
+                       isValidId(configId) &&
+                       isValidGitHubConfig(incoming()) &&
+                       incoming().keys().hasAll(['owner', 'repo', 'branch', 'latestCommitSha', 'latestCommitMessage', 'remoteVersion', 'status', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['owner', 'repo', 'branch', 'latestCommitSha', 'latestCommitMessage', 'remoteVersion', 'updateNotes', 'status', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time;
+      allow update: if isSignedIn() &&
+                       isValidGitHubConfig(incoming()) &&
+                       isAdmin() &&
+                       isValidId(configId) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['owner', 'repo', 'branch', 'latestCommitSha', 'latestCommitMessage', 'remoteVersion', 'updateNotes', 'status', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(configId);
+    }
+  }
+}

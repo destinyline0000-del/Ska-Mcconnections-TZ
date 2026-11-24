@@ -1,0 +1,233 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized platform administrator record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "grantedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email", "grantedBy", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private user account profile including role, subscription tier, language, and PII.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "role": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM", "ADMIN"] },
+        "subscriptionTier": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM"] },
+        "preferredLanguage": { "type": "string", "enum": ["EN", "SW"] },
+        "banned": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "role", "subscriptionTier", "preferredLanguage", "banned", "createdAt", "updatedAt"]
+    },
+    "UserDirectoryEntry": {
+      "title": "UserDirectoryEntry",
+      "description": "Public non-PII user summary for group badges and 1-to-1 chat discovery.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "role": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM", "ADMIN"] },
+        "subscriptionTier": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM"] },
+        "discoverable": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "role", "subscriptionTier", "discoverable", "updatedAt"]
+    },
+    "Movie": {
+      "title": "Movie",
+      "description": "Catalog movie entry with tier gating, auto-detected link type, and Drive slot routing.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tier": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM"] },
+        "videoUrl": { "type": "string" },
+        "resolvedStreamUrl": { "type": "string" },
+        "linkType": { "type": "string", "enum": ["DIRECT_MP4", "YOUTUBE", "VIMEO", "GOOGLE_DRIVE", "HOSTED_WEB", "BUNDLED_CLIP"] },
+        "posterUrl": { "type": "string" },
+        "genre": { "type": "string" },
+        "durationMinutes": { "type": "integer" },
+        "driveAccountSlot": { "type": "integer" },
+        "driveFileId": { "type": "string" },
+        "published": { "type": "boolean" },
+        "addedByUid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "tier", "videoUrl", "linkType", "genre", "durationMinutes", "driveAccountSlot", "published", "addedByUid", "createdAt", "updatedAt"]
+    },
+    "ChatGroup": {
+      "title": "ChatGroup",
+      "description": "Public social community chat group.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "topicTag": { "type": "string" },
+        "createdByUid": { "type": "string" },
+        "active": { "type": "boolean" },
+        "memberCount": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "createdByUid", "active", "memberCount", "createdAt", "updatedAt"]
+    },
+    "GroupMessage": {
+      "title": "GroupMessage",
+      "description": "Message inside a chat group supporting text and photo/video media attachments.",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderTier": { "type": "string", "enum": ["FREE", "VIP", "PREMIUM", "ADMIN"] },
+        "text": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["NONE", "IMAGE", "VIDEO"] },
+        "mediaUrl": { "type": "string" },
+        "thumbnailData": { "type": "string" },
+        "groupActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["groupId", "senderId", "senderName", "senderTier", "text", "mediaType", "groupActive", "createdAt"]
+    },
+    "PrivateChat": {
+      "title": "PrivateChat",
+      "description": "One-to-one private conversation visible to both participants and admin oversight.",
+      "type": "object",
+      "properties": {
+        "participantIds": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "lastMessage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["participantIds", "participantNames", "lastMessage", "createdAt", "updatedAt"]
+    },
+    "PrivateMessage": {
+      "title": "PrivateMessage",
+      "description": "One-to-one private message with denormalized participantIds for rule efficiency.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string" },
+        "participantIds": { "type": "array" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "mediaType": { "type": "string", "enum": ["NONE", "IMAGE", "VIDEO"] },
+        "mediaUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["chatId", "participantIds", "senderId", "senderName", "text", "mediaType", "createdAt"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "Tanzanian mobile money payment request (M-Pesa, Tigo Pesa, Airtel Money) for VIP or Premium upgrade.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "provider": { "type": "string", "enum": ["MPESA", "TIGO_PESA", "AIRTEL_MONEY"] },
+        "phoneNumber": { "type": "string" },
+        "targetTier": { "type": "string", "enum": ["VIP", "PREMIUM"] },
+        "amountTzs": { "type": "integer" },
+        "referenceCode": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "provider", "phoneNumber", "targetTier", "amountTzs", "referenceCode", "status", "createdAt", "updatedAt"]
+    },
+    "DriveAccountSlot": {
+      "title": "DriveAccountSlot",
+      "description": "Connected Google Drive storage slot (1 to 5) managed by admin.",
+      "type": "object",
+      "properties": {
+        "slotNumber": { "type": "integer" },
+        "accountLabel": { "type": "string" },
+        "accountEmail": { "type": "string" },
+        "folderId": { "type": "string" },
+        "status": { "type": "string", "enum": ["CONNECTED", "ACTIVE", "DISCONNECTED", "ERROR"] },
+        "usedBytes": { "type": "integer" },
+        "totalBytes": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["slotNumber", "accountLabel", "accountEmail", "status", "usedBytes", "totalBytes", "updatedAt"]
+    },
+    "GitHubConfig": {
+      "title": "GitHubConfig",
+      "description": "Connected GitHub repository configuration and OTA manifest sync metadata.",
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" },
+        "branch": { "type": "string" },
+        "latestCommitSha": { "type": "string" },
+        "latestCommitMessage": { "type": "string" },
+        "remoteVersion": { "type": "string" },
+        "updateNotes": { "type": "string" },
+        "status": { "type": "string", "enum": ["CONNECTED", "SYNCED", "DISCONNECTED"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["owner", "repo", "branch", "latestCommitSha", "latestCommitMessage", "remoteVersion", "status", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Platform administrator grants."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user profile and subscription details."
+    },
+    "/user_directory/{userId}": {
+      "schema": { "$ref": "#/entities/UserDirectoryEntry" },
+      "description": "Public non-PII user directory for social chat discovery."
+    },
+    "/movies/{movieId}": {
+      "schema": { "$ref": "#/entities/Movie" },
+      "description": "Free, VIP, and Premium movies catalog."
+    },
+    "/chat_groups/{groupId}": {
+      "schema": { "$ref": "#/entities/ChatGroup" },
+      "description": "Community chat groups."
+    },
+    "/chat_groups/{groupId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/GroupMessage" },
+      "description": "Group chat messages with text, photos, and videos."
+    },
+    "/private_chats/{chatId}": {
+      "schema": { "$ref": "#/entities/PrivateChat" },
+      "description": "1-to-1 private conversations with admin oversight."
+    },
+    "/private_chats/{chatId}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/PrivateMessage" },
+      "description": "Private messages inside a 1-to-1 conversation."
+    },
+    "/payment_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/PaymentRequest" },
+      "description": "Mobile money upgrade payments."
+    },
+    "/drive_accounts/{slotId}": {
+      "schema": { "$ref": "#/entities/DriveAccountSlot" },
+      "description": "Up to 5 connected Google Drive storage accounts."
+    },
+    "/github_config/{configId}": {
+      "schema": { "$ref": "#/entities/GitHubConfig" },
+      "description": "GitHub repository integration for updates."
+    }
+  }
+}

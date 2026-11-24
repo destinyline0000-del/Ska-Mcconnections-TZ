@@ -1,0 +1,6 @@
+{
+  "name": "Ska Macconnections TZ",
+  "description": "Social and movie streaming app for Tanzanian users with Free, VIP, and Premium movies, group and private chats, multi-account Google Drive storage, GitHub updates, and offline downloads.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
